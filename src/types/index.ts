@@ -41,13 +41,13 @@ export interface JoinedProfile {
 export interface Order {
   id: string;
   order_number: string;
-  optician_id: string;
+  optician_id?: string;
   assigned_technician_id?: string | null;
   customer_name: string;
   customer_phone?: string | null;
-  frame_type: FrameType;
+  frame_type?: FrameType;
   frame_brand?: string | null;
-  lens_type: LensType;
+  lens_type?: LensType;
   lens_material?: LensMaterial | null;
   lens_coating?: string | null;
   re_sph?: string | null;
@@ -65,7 +65,7 @@ export interface Order {
   prescription_photo_url?: string | null;
   frame_photo_url?: string | null;
   status: OrderStatus;
-  delivery_type: 'pickup' | 'delivery';
+  delivery_type?: 'pickup' | 'delivery';
   delivery_address?: string | null;
   estimated_delivery?: string | null;
   actual_delivery_date?: string | null;
