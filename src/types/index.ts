@@ -36,7 +36,7 @@ export interface JoinedProfile {
   email?: string | null;
   gst_number?: string | null;
   address?: string | null;
-}
+};
 
 export interface Order {
   id: string;
@@ -45,9 +45,9 @@ export interface Order {
   assigned_technician_id?: string | null;
   customer_name: string;
   customer_phone?: string | null;
-  frame_type?: FrameType; | null;
+  frame_type?: FrameType | null;
   frame_brand?: string | null;
-  lens_type?: LensType; | null;
+  lens_type?: LensType | null;
   lens_material?: LensMaterial | null;
   lens_coating?: string | null;
   re_sph?: string | null;
