@@ -21,7 +21,7 @@ export default async function DashboardPage() {
   // Fetch orders summary
   const { data: orders } = await supabase
     .from('orders')
-    .select('id, order_number, customer_name, status, is_urgent, created_at, updated_at, base_price, extra_charges, discount')
+    .select('id, order_number, customer_name, status, is_urgent, created_at, updated_at, base_price, extra_charges, discount, optician_id, delivery_type')
     .eq('optician_id', session.user.id)
     .order('created_at', { ascending: false })
     .limit(5);
