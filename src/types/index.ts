@@ -65,7 +65,7 @@ export interface Order {
   prescription_photo_url?: string | null;
   frame_photo_url?: string | null;
   status: OrderStatus;
-  delivery_type?: 'pickup' | 'delivery';
+  delivery_type: 'pickup' | 'delivery';
   delivery_address?: string | null;
   estimated_delivery?: string | null;
   actual_delivery_date?: string | null;
