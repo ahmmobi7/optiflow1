@@ -24,7 +24,13 @@ export default function InvoicesClient({ invoices, profile }: InvoicesClientProp
     if (!invoice.orders) { toast.error('Order not found'); return; }
     setDownloading(invoice.id);
     try {
-      await generatePDF(invoice.orders as any, invoice);
+      const orderForPDF = {
+        ...invoice.orders,
+        optician_id: invoice.optician_id,
+        profiles: invoice.profiles,
+      };
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await generatePDF(orderForPDF as any, invoice);
       toast.success('Invoice downloaded!');
     } catch (e) {
       toast.error('Download failed');

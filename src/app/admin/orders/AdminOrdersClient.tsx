@@ -8,7 +8,7 @@ import type { Order, Profile, OrderStatus } from '@/types';
 import { ORDER_STATUS_LABELS, ORDER_STATUSES } from '@/types';
 import { StatusBadge } from '@/components/StatusBadge';
 import { timeAgo } from '@/lib/utils';
-import { Search, Filter, Package, AlertTriangle, ChevronRight, Wrench, X } from 'lucide-react';
+import { Search, Filter, Package, AlertTriangle, ChevronRight, Wrench } from 'lucide-react';
 
 interface AdminOrdersClientProps {
   orders: Order[];
@@ -32,7 +32,7 @@ export default function AdminOrdersClient({ orders: initialOrders, technicians, 
       r = r.filter(o =>
         o.customer_name.toLowerCase().includes(q) ||
         o.order_number.toLowerCase().includes(q) ||
-        (o.profiles as Record<string, string> | undefined)?.shop_name?.toLowerCase().includes(q)
+        (o.profiles?.shop_name ?? '').toLowerCase().includes(q)
       );
     }
     return r;
@@ -48,7 +48,9 @@ export default function AdminOrdersClient({ orders: initialOrders, technicians, 
     if (error) {
       toast.error('Failed to assign');
     } else {
-      setOrders(prev => prev.map(o => o.id === orderId ? { ...o, assigned_technician_id: techId || undefined } : o));
+      setOrders(prev =>
+        prev.map(o => o.id === orderId ? { ...o, assigned_technician_id: techId } : o)
+      );
       toast.success(techId ? 'Technician assigned!' : 'Technician removed');
     }
     setAssigning(null);
@@ -84,27 +86,37 @@ export default function AdminOrdersClient({ orders: initialOrders, technicians, 
         <div className="flex gap-2">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-            <input value={search} onChange={e => setSearch(e.target.value)}
+            <input
+              value={search}
+              onChange={e => setSearch(e.target.value)}
               placeholder="Search orders, shops..."
-              className="w-full pl-9 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:border-blue-400 transition" />
+              className="w-full pl-9 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:border-blue-400 transition"
+            />
           </div>
-          <button onClick={() => setShowFilters(!showFilters)}
+          <button
+            onClick={() => setShowFilters(!showFilters)}
             className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium border transition ${
               statusFilter ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-600 border-slate-200'
-            }`}>
+            }`}
+          >
             <Filter className="w-4 h-4" />
             Filter
           </button>
         </div>
         {showFilters && (
           <div className="mt-2 flex flex-wrap gap-1.5">
-            <button onClick={() => setStatusFilter('')}
-              className={`px-3 py-1 rounded-full text-xs font-medium border ${!statusFilter ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-500 border-slate-200'}`}>
+            <button
+              onClick={() => setStatusFilter('')}
+              className={`px-3 py-1 rounded-full text-xs font-medium border ${!statusFilter ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-500 border-slate-200'}`}
+            >
               All
             </button>
             {ORDER_STATUSES.map(s => (
-              <button key={s} onClick={() => setStatusFilter(s)}
-                className={`px-3 py-1 rounded-full text-xs font-medium border ${statusFilter === s ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-500 border-slate-200'}`}>
+              <button
+                key={s}
+                onClick={() => setStatusFilter(s)}
+                className={`px-3 py-1 rounded-full text-xs font-medium border ${statusFilter === s ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-500 border-slate-200'}`}
+              >
                 {ORDER_STATUS_LABELS[s]}
               </button>
             ))}
@@ -120,29 +132,32 @@ export default function AdminOrdersClient({ orders: initialOrders, technicians, 
           </div>
         ) : (
           filtered.map(order => (
-            <div key={order.id} className={`bg-white rounded-2xl border p-4 space-y-3 ${
-              order.is_urgent ? 'border-red-200' : 'border-slate-100'
-            }`}>
+            <div
+              key={order.id}
+              className={`bg-white rounded-2xl border p-4 space-y-3 ${order.is_urgent ? 'border-red-200' : 'border-slate-100'}`}
+            >
               <div className="flex items-start justify-between gap-3">
                 <div className="flex items-start gap-3 min-w-0">
-                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${
-                    order.is_urgent ? 'bg-red-100' : 'bg-slate-100'
-                  }`}>
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${order.is_urgent ? 'bg-red-100' : 'bg-slate-100'}`}>
                     {order.is_urgent
                       ? <AlertTriangle className="w-5 h-5 text-red-500" />
                       : <Package className="w-5 h-5 text-slate-400" />}
                   </div>
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
-                      <Link href={`/orders/${order.id}`}
-                        className="font-semibold text-slate-900 text-sm hover:text-blue-600 transition truncate">
+                      <Link
+                        href={`/orders/${order.id}`}
+                        className="font-semibold text-slate-900 text-sm hover:text-blue-600 transition truncate"
+                      >
                         {order.customer_name}
                       </Link>
                       {order.is_urgent && (
                         <span className="bg-red-100 text-red-600 text-xs font-bold px-1.5 rounded-full flex-shrink-0">URGENT</span>
                       )}
                     </div>
-                    <p className="text-xs text-slate-400">{order.order_number} · {(order.profiles as Record<string, string> | undefined)?.shop_name}</p>
+                    <p className="text-xs text-slate-400">
+                      {order.order_number} · {order.profiles?.shop_name ?? order.profiles?.owner_name ?? '—'}
+                    </p>
                     <p className="text-xs text-slate-300 mt-0.5">{timeAgo(order.created_at)}</p>
                   </div>
                 </div>
@@ -154,26 +169,27 @@ export default function AdminOrdersClient({ orders: initialOrders, technicians, 
                 </div>
               </div>
 
-              {/* Assign technician */}
+              {/* Assign technician + quick status */}
               <div className="flex items-center gap-2 pt-2 border-t border-slate-100">
                 <Wrench className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
                 <select
-                  value={order.assigned_technician_id || ''}
+                  value={order.assigned_technician_id ?? ''}
                   onChange={e => handleAssignTechnician(order.id, e.target.value || null)}
                   disabled={assigning === order.id}
-                  className="flex-1 text-xs bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-slate-600 focus:border-blue-400 transition">
+                  className="flex-1 text-xs bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-slate-600 focus:border-blue-400 transition"
+                >
                   <option value="">— Assign Technician —</option>
                   {technicians.map(t => (
-                    <option key={t.id} value={t.id}>{t.owner_name || t.email}</option>
+                    <option key={t.id} value={t.id}>{t.owner_name ?? t.email}</option>
                   ))}
                 </select>
 
-                {/* Quick status update */}
                 {order.status !== 'delivered' && (
                   <select
                     value={order.status}
                     onChange={e => handleStatusUpdate(order, e.target.value as OrderStatus)}
-                    className="flex-1 text-xs bg-blue-50 border border-blue-200 rounded-lg px-2 py-1.5 text-blue-700 font-medium focus:border-blue-400 transition">
+                    className="flex-1 text-xs bg-blue-50 border border-blue-200 rounded-lg px-2 py-1.5 text-blue-700 font-medium focus:border-blue-400 transition"
+                  >
                     {ORDER_STATUSES.map(s => (
                       <option key={s} value={s}>{ORDER_STATUS_LABELS[s]}</option>
                     ))}

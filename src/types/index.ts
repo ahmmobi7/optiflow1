@@ -27,45 +27,56 @@ export interface Profile {
   updated_at: string;
 }
 
+// Partial profile shape returned by Supabase joins
+export interface JoinedProfile {
+  id?: string;
+  shop_name?: string | null;
+  owner_name?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  gst_number?: string | null;
+  address?: string | null;
+}
+
 export interface Order {
   id: string;
   order_number: string;
   optician_id: string;
-  assigned_technician_id?: string;
+  assigned_technician_id?: string | null;
   customer_name: string;
-  customer_phone?: string;
+  customer_phone?: string | null;
   frame_type: FrameType;
-  frame_brand?: string;
+  frame_brand?: string | null;
   lens_type: LensType;
-  lens_material?: LensMaterial;
-  lens_coating?: string;
-  re_sph?: string;
-  re_cyl?: string;
-  re_axis?: string;
-  re_add?: string;
-  le_sph?: string;
-  le_cyl?: string;
-  le_axis?: string;
-  le_add?: string;
-  pd_distance?: string;
-  pd_near?: string;
-  special_instructions?: string;
+  lens_material?: LensMaterial | null;
+  lens_coating?: string | null;
+  re_sph?: string | null;
+  re_cyl?: string | null;
+  re_axis?: string | null;
+  re_add?: string | null;
+  le_sph?: string | null;
+  le_cyl?: string | null;
+  le_axis?: string | null;
+  le_add?: string | null;
+  pd_distance?: string | null;
+  pd_near?: string | null;
+  special_instructions?: string | null;
   is_urgent: boolean;
-  prescription_photo_url?: string;
-  frame_photo_url?: string;
+  prescription_photo_url?: string | null;
+  frame_photo_url?: string | null;
   status: OrderStatus;
   delivery_type: 'pickup' | 'delivery';
-  delivery_address?: string;
-  estimated_delivery?: string;
-  actual_delivery_date?: string;
+  delivery_address?: string | null;
+  estimated_delivery?: string | null;
+  actual_delivery_date?: string | null;
   base_price: number;
   extra_charges: number;
   discount: number;
   created_at: string;
   updated_at: string;
-  // Joined fields
-  profiles?: Profile;
-  technician?: Profile;
+  // Joined fields from Supabase select
+  profiles?: JoinedProfile | null;
+  technician?: JoinedProfile | null;
   invoices?: Invoice[];
 }
 
@@ -77,6 +88,17 @@ export interface OrderStatusHistory {
   updated_by?: string;
   created_at: string;
   profiles?: Profile;
+}
+
+// Partial order shape returned by Supabase joins
+export interface JoinedOrder {
+  id?: string;
+  order_number?: string;
+  customer_name?: string;
+  status?: OrderStatus;
+  frame_type?: string;
+  lens_type?: string;
+  base_price?: number;
 }
 
 export interface Invoice {
@@ -91,13 +113,14 @@ export interface Invoice {
   total_amount: number;
   status: 'unpaid' | 'paid' | 'partial';
   paid_amount: number;
-  payment_method?: string;
-  payment_date?: string;
-  notes?: string;
+  payment_method?: string | null;
+  payment_date?: string | null;
+  notes?: string | null;
   created_at: string;
   updated_at: string;
-  orders?: Order;
-  profiles?: Profile;
+  // Joined fields from Supabase select
+  orders?: JoinedOrder | null;
+  profiles?: JoinedProfile | null;
 }
 
 export interface Notification {

@@ -1,8 +1,7 @@
-import type { Order, Invoice } from '@/types';
+import type { Order, Invoice, JoinedProfile } from '@/types';
 import { formatDate, formatCurrency } from './utils';
 
 export async function generatePDF(order: Order, invoice: Invoice) {
-  // Dynamic import to avoid SSR issues
   const jsPDF = (await import('jspdf')).default;
   const autoTable = (await import('jspdf-autotable')).default;
 
@@ -10,8 +9,8 @@ export async function generatePDF(order: Order, invoice: Invoice) {
   const pageW = doc.internal.pageSize.getWidth();
   const margin = 20;
 
-  // ─── Header brand bar ───────────────────────────────────────────────────
-  doc.setFillColor(37, 99, 235); // blue-600
+  // ─── Header brand bar ────────────────────────────────────────────────────
+  doc.setFillColor(37, 99, 235);
   doc.rect(0, 0, pageW, 28, 'F');
 
   doc.setFontSize(20);
@@ -30,9 +29,15 @@ export async function generatePDF(order: Order, invoice: Invoice) {
   doc.setFont('helvetica', 'normal');
   doc.text(invoice.invoice_number, pageW - margin, 23, { align: 'right' });
 
-  // ─── Optician details ────────────────────────────────────────────────────
+  // ─── Optician details ─────────────────────────────────────────────────────
   let y = 38;
   doc.setTextColor(30, 30, 30);
+
+  // Safely read joined profile fields
+  const joinedProfile = order.profiles as JoinedProfile | null | undefined;
+  const shopName = joinedProfile?.shop_name ?? 'Optician';
+  const ownerName = joinedProfile?.owner_name ?? '';
+  const gstNumber = joinedProfile?.gst_number ?? '';
 
   doc.setFontSize(11);
   doc.setFont('helvetica', 'bold');
@@ -41,11 +46,6 @@ export async function generatePDF(order: Order, invoice: Invoice) {
   doc.setFontSize(9);
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(60, 60, 60);
-
-  const shopName = (order.profiles as Record<string, string> | undefined)?.shop_name || 'Optician';
-  const ownerName = (order.profiles as Record<string, string> | undefined)?.owner_name || '';
-  const gstNumber = (order.profiles as Record<string, string> | undefined)?.gst_number || '';
-
   doc.text(shopName, margin, y + 6);
   if (ownerName) doc.text(ownerName, margin, y + 11);
   if (gstNumber) doc.text(`GSTIN: ${gstNumber}`, margin, y + 16);
@@ -67,13 +67,13 @@ export async function generatePDF(order: Order, invoice: Invoice) {
     doc.text(value, col2x + 32, y + 6 + i * 6);
   });
 
-  // ─── Divider ─────────────────────────────────────────────────────────────
+  // ─── Divider ──────────────────────────────────────────────────────────────
   y += 32;
   doc.setDrawColor(220, 220, 230);
   doc.setLineWidth(0.3);
   doc.line(margin, y, pageW - margin, y);
 
-  // ─── Patient & Prescription ──────────────────────────────────────────────
+  // ─── Job Details ──────────────────────────────────────────────────────────
   y += 8;
   doc.setFontSize(10);
   doc.setFont('helvetica', 'bold');
@@ -89,9 +89,9 @@ export async function generatePDF(order: Order, invoice: Invoice) {
       ['Patient Name', order.customer_name],
       ['Frame Type', order.frame_type],
       ['Lens Type', order.lens_type],
-      ['Lens Material', order.lens_material || '—'],
-      ['Coating', order.lens_coating || 'None'],
-      ['PD', order.pd_distance || '—'],
+      ['Lens Material', order.lens_material ?? '—'],
+      ['Coating', order.lens_coating ?? 'None'],
+      ['PD', order.pd_distance ?? '—'],
     ],
     theme: 'striped',
     headStyles: { fillColor: [37, 99, 235], textColor: 255, fontStyle: 'bold', fontSize: 8 },
@@ -111,8 +111,8 @@ export async function generatePDF(order: Order, invoice: Invoice) {
     margin: { left: margin, right: margin },
     head: [['Eye', 'SPH', 'CYL', 'AXIS', 'ADD']],
     body: [
-      ['Right (RE)', order.re_sph || '—', order.re_cyl || '—', order.re_axis || '—', order.re_add || '—'],
-      ['Left (LE)', order.le_sph || '—', order.le_cyl || '—', order.le_axis || '—', order.le_add || '—'],
+      ['Right (RE)', order.re_sph ?? '—', order.re_cyl ?? '—', order.re_axis ?? '—', order.re_add ?? '—'],
+      ['Left (LE)', order.le_sph ?? '—', order.le_cyl ?? '—', order.le_axis ?? '—', order.le_add ?? '—'],
     ],
     theme: 'grid',
     headStyles: { fillColor: [100, 116, 139], textColor: 255, fontStyle: 'bold', fontSize: 8 },

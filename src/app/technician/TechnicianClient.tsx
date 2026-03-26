@@ -7,8 +7,8 @@ import toast from 'react-hot-toast';
 import type { Order, Profile, OrderStatus } from '@/types';
 import { ORDER_STATUS_LABELS, ORDER_STATUSES } from '@/types';
 import { StatusBadge } from '@/components/StatusBadge';
-import { timeAgo, formatDate } from '@/lib/utils';
-import { Package, AlertTriangle, ChevronRight, Clock, CheckCircle2, Wrench } from 'lucide-react';
+import { timeAgo } from '@/lib/utils';
+import { Package, AlertTriangle, CheckCircle2, Clock, Wrench } from 'lucide-react';
 
 interface TechnicianClientProps {
   orders: Order[];
@@ -16,7 +16,6 @@ interface TechnicianClientProps {
 }
 
 export default function TechnicianClient({ orders: initialOrders, profile }: TechnicianClientProps) {
-  const router = useRouter();
   const supabase = createClient();
   const [orders, setOrders] = useState(initialOrders);
   const [updating, setUpdating] = useState<string | null>(null);
@@ -25,21 +24,16 @@ export default function TechnicianClient({ orders: initialOrders, profile }: Tec
 
   const getNextStatus = (current: OrderStatus): OrderStatus | null => {
     const idx = ORDER_STATUSES.indexOf(current);
-    if (idx < ORDER_STATUSES.length - 1) return ORDER_STATUSES[idx + 1];
-    return null;
+    return idx < ORDER_STATUSES.length - 1 ? ORDER_STATUSES[idx + 1] : null;
   };
 
   const handleUpdateStatus = async (order: Order, newStatus: OrderStatus) => {
     setUpdating(order.id);
-    const { error } = await supabase
-      .from('orders')
-      .update({ status: newStatus })
-      .eq('id', order.id);
+    const { error } = await supabase.from('orders').update({ status: newStatus }).eq('id', order.id);
 
     if (error) {
       toast.error('Failed to update status');
     } else {
-      // Add status history
       await supabase.from('order_status_history').insert({
         order_id: order.id,
         status: newStatus,
@@ -47,7 +41,6 @@ export default function TechnicianClient({ orders: initialOrders, profile }: Tec
         notes: notes.trim() || null,
       });
 
-      // Notify the optician
       await supabase.from('notifications').insert({
         user_id: order.optician_id,
         order_id: order.id,
@@ -56,10 +49,13 @@ export default function TechnicianClient({ orders: initialOrders, profile }: Tec
         type: newStatus === 'delivered' ? 'success' : 'info',
       });
 
-      setOrders(prev => prev.map(o => o.id === order.id ? { ...o, status: newStatus } : o)
-        .filter(o => o.status !== 'delivered'));
+      setOrders(prev =>
+        prev
+          .map(o => o.id === order.id ? { ...o, status: newStatus } : o)
+          .filter(o => o.status !== 'delivered')
+      );
 
-      toast.success(`Status updated to: ${ORDER_STATUS_LABELS[newStatus]}`);
+      toast.success(`Status: ${ORDER_STATUS_LABELS[newStatus]}`);
       setSelectedOrder(null);
       setNotes('');
     }
@@ -72,14 +68,13 @@ export default function TechnicianClient({ orders: initialOrders, profile }: Tec
   const OrderCard = ({ order }: { order: Order }) => {
     const nextStatus = getNextStatus(order.status);
     const isUpdating = updating === order.id;
+    const shopName = order.profiles?.shop_name ?? order.profiles?.owner_name ?? 'Unknown Shop';
 
     return (
       <div className={`bg-white rounded-2xl border ${order.is_urgent ? 'border-red-200' : 'border-slate-100'} p-4 space-y-3`}>
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-start gap-3 min-w-0">
-            <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${
-              order.is_urgent ? 'bg-red-100' : 'bg-slate-100'
-            }`}>
+            <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${order.is_urgent ? 'bg-red-100' : 'bg-slate-100'}`}>
               {order.is_urgent
                 ? <AlertTriangle className="w-5 h-5 text-red-500" />
                 : <Package className="w-5 h-5 text-slate-500" />}
@@ -87,20 +82,17 @@ export default function TechnicianClient({ orders: initialOrders, profile }: Tec
             <div className="min-w-0">
               <p className="font-semibold text-slate-900">{order.customer_name}</p>
               <p className="text-xs text-slate-400">{order.order_number} · {timeAgo(order.created_at)}</p>
-              <p className="text-xs text-slate-500 mt-0.5">
-                {(order.profiles as Record<string, string> | undefined)?.shop_name || 'Unknown Shop'}
-              </p>
+              <p className="text-xs text-slate-500 mt-0.5">{shopName}</p>
             </div>
           </div>
           <StatusBadge status={order.status} size="sm" />
         </div>
 
-        {/* Lens details */}
         <div className="bg-slate-50 rounded-xl px-3 py-2.5 grid grid-cols-2 gap-x-4 gap-y-1">
           <div className="text-xs"><span className="text-slate-400">Frame: </span><span className="font-medium text-slate-700">{order.frame_type}</span></div>
           <div className="text-xs"><span className="text-slate-400">Lens: </span><span className="font-medium text-slate-700">{order.lens_type}</span></div>
-          <div className="text-xs"><span className="text-slate-400">RE: </span><span className="font-mono font-medium text-slate-700">{order.re_sph}/{order.re_cyl}</span></div>
-          <div className="text-xs"><span className="text-slate-400">LE: </span><span className="font-mono font-medium text-slate-700">{order.le_sph}/{order.le_cyl}</span></div>
+          <div className="text-xs"><span className="text-slate-400">RE: </span><span className="font-mono font-medium text-slate-700">{order.re_sph ?? '—'}/{order.re_cyl ?? '—'}</span></div>
+          <div className="text-xs"><span className="text-slate-400">LE: </span><span className="font-mono font-medium text-slate-700">{order.le_sph ?? '—'}/{order.le_cyl ?? '—'}</span></div>
         </div>
 
         {order.special_instructions && (
@@ -109,23 +101,13 @@ export default function TechnicianClient({ orders: initialOrders, profile }: Tec
           </div>
         )}
 
-        {/* Actions */}
         {nextStatus && (
-          <div className="flex gap-2">
-            <button
-              onClick={() => {
-                if (selectedOrder?.id === order.id) {
-                  setSelectedOrder(null);
-                } else {
-                  setSelectedOrder(order);
-                  setNotes('');
-                }
-              }}
-              className="flex-1 py-2.5 bg-slate-100 text-slate-700 text-sm font-medium rounded-xl hover:bg-slate-200 transition flex items-center justify-center gap-2">
-              <ChevronRight className="w-4 h-4" />
-              Update Status
-            </button>
-          </div>
+          <button
+            onClick={() => setSelectedOrder(selectedOrder?.id === order.id ? null : order)}
+            className="w-full py-2.5 bg-slate-100 text-slate-700 text-sm font-medium rounded-xl hover:bg-slate-200 transition"
+          >
+            Update Status →
+          </button>
         )}
 
         {selectedOrder?.id === order.id && nextStatus && (
@@ -141,19 +123,20 @@ export default function TechnicianClient({ orders: initialOrders, profile }: Tec
               className="w-full px-3 py-2 bg-white border border-blue-200 rounded-xl text-sm resize-none focus:border-blue-400 transition"
             />
             <div className="flex gap-2">
-              <button onClick={() => setSelectedOrder(null)}
-                className="flex-1 py-2 bg-white border border-slate-200 text-slate-600 text-sm font-medium rounded-xl hover:bg-slate-50 transition">
+              <button
+                onClick={() => setSelectedOrder(null)}
+                className="flex-1 py-2 bg-white border border-slate-200 text-slate-600 text-sm font-medium rounded-xl hover:bg-slate-50 transition"
+              >
                 Cancel
               </button>
               <button
                 onClick={() => handleUpdateStatus(order, nextStatus)}
                 disabled={isUpdating}
-                className="flex-1 py-2 bg-blue-600 text-white text-sm font-semibold rounded-xl hover:bg-blue-700 disabled:opacity-60 transition flex items-center justify-center gap-2">
-                {isUpdating ? (
-                  <span className="inline-block w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                ) : (
-                  <CheckCircle2 className="w-4 h-4" />
-                )}
+                className="flex-1 py-2 bg-blue-600 text-white text-sm font-semibold rounded-xl hover:bg-blue-700 disabled:opacity-60 transition flex items-center justify-center gap-2"
+              >
+                {isUpdating
+                  ? <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  : <CheckCircle2 className="w-4 h-4" />}
                 Confirm
               </button>
             </div>
