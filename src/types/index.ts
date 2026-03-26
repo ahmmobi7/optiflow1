@@ -41,7 +41,7 @@ export interface JoinedProfile {
 export interface Order {
   id: string;
   order_number: string;
-  optician_id?: string;
+  optician_id: string;
   assigned_technician_id?: string | null;
   customer_name: string;
   customer_phone?: string | null;
