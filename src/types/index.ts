@@ -1,3 +1,5 @@
+// ─── Scalar enums ──────────────────────────────────────────────────────────────
+
 export type UserRole = 'optician' | 'technician' | 'admin';
 
 export type OrderStatus =
@@ -10,95 +12,116 @@ export type OrderStatus =
   | 'delivered';
 
 export type FrameType = 'Full Rim' | 'Half Rim' | 'Rimless' | 'Supra';
-export type LensType = 'Single Vision' | 'Bifocal' | 'Progressive' | 'Photochromic' | 'Anti-Reflective';
-export type LensMaterial = 'CR-39' | 'Polycarbonate' | 'High Index 1.67' | 'High Index 1.74' | 'Trivex';
+export type LensType =
+  | 'Single Vision'
+  | 'Bifocal'
+  | 'Progressive'
+  | 'Photochromic'
+  | 'Anti-Reflective';
+export type LensMaterial =
+  | 'CR-39'
+  | 'Polycarbonate'
+  | 'High Index 1.67'
+  | 'High Index 1.74'
+  | 'Trivex';
+
+// ─── Profile ───────────────────────────────────────────────────────────────────
 
 export interface Profile {
   id: string;
   email: string;
   role: UserRole;
-  shop_name?: string;
-  owner_name?: string;
-  phone?: string;
-  address?: string;
-  gst_number?: string;
+  shop_name: string | null;
+  owner_name: string | null;
+  phone: string | null;
+  address: string | null;
+  gst_number: string | null;
   is_active: boolean;
   created_at: string;
   updated_at: string;
 }
 
-// Partial profile shape returned by Supabase joins
+/** Slim profile shape returned by Supabase JOIN selects */
 export interface JoinedProfile {
-  id?: string;
+  id?: string | null;
   shop_name?: string | null;
   owner_name?: string | null;
   phone?: string | null;
   email?: string | null;
   gst_number?: string | null;
   address?: string | null;
-};
+}
+
+// ─── Order ─────────────────────────────────────────────────────────────────────
+// All columns are non-optional here (matching DB schema).
+// We use `as unknown as Order` in server pages because Supabase has no
+// generated types file, so its inferred type never matches ours exactly.
 
 export interface Order {
   id: string;
   order_number: string;
   optician_id: string;
-  assigned_technician_id?: string | null;
+  assigned_technician_id: string | null;
   customer_name: string;
-  customer_phone?: string | null;
-  frame_type?: FrameType | null;
-  frame_brand?: string | null;
-  lens_type?: LensType | null;
-  lens_material?: LensMaterial | null;
-  lens_coating?: string | null;
-  re_sph?: string | null;
-  re_cyl?: string | null;
-  re_axis?: string | null;
-  re_add?: string | null;
-  le_sph?: string | null;
-  le_cyl?: string | null;
-  le_axis?: string | null;
-  le_add?: string | null;
-  pd_distance?: string | null;
-  pd_near?: string | null;
-  special_instructions?: string | null;
+  customer_phone: string | null;
+  frame_type: string;
+  frame_brand: string | null;
+  lens_type: string;
+  lens_material: string | null;
+  lens_coating: string | null;
+  re_sph: string | null;
+  re_cyl: string | null;
+  re_axis: string | null;
+  re_add: string | null;
+  le_sph: string | null;
+  le_cyl: string | null;
+  le_axis: string | null;
+  le_add: string | null;
+  pd_distance: string | null;
+  pd_near: string | null;
+  special_instructions: string | null;
   is_urgent: boolean;
-  prescription_photo_url?: string | null;
-  frame_photo_url?: string | null;
+  prescription_photo_url: string | null;
+  frame_photo_url: string | null;
   status: OrderStatus;
-  delivery_type: 'pickup' | 'delivery';
-  delivery_address?: string | null;
-  estimated_delivery?: string | null;
-  actual_delivery_date?: string | null;
+  delivery_type: string;
+  delivery_address: string | null;
+  estimated_delivery: string | null;
+  actual_delivery_date: string | null;
   base_price: number;
   extra_charges: number;
   discount: number;
   created_at: string;
   updated_at: string;
-  // Joined fields from Supabase select
+  // Joined relations (present only when the query includes them)
   profiles?: JoinedProfile | null;
   technician?: JoinedProfile | null;
   invoices?: Invoice[];
 }
 
+// ─── Order status history ──────────────────────────────────────────────────────
+
 export interface OrderStatusHistory {
   id: string;
   order_id: string;
   status: OrderStatus;
-  notes?: string;
-  updated_by?: string;
+  notes: string | null;
+  updated_by: string | null;
   created_at: string;
-  profiles?: Profile;
+  profiles?: JoinedProfile | null;
 }
 
-// Partial order shape returned by Supabase joins
+// ─── Invoice ───────────────────────────────────────────────────────────────────
+
+/** Slim order shape returned inside invoice joins */
 export interface JoinedOrder {
-  id?: string;
-  order_number?: string;
-  customer_name?: string;
-  status?: OrderStatus;
-  frame_type?: string;
-  lens_type?: string;
-  base_price?: number;
+  id?: string | null;
+  order_number?: string | null;
+  customer_name?: string | null;
+  status?: string | null;
+  frame_type?: string | null;
+  lens_type?: string | null;
+  base_price?: number | null;
 }
 
 export interface Invoice {
@@ -113,20 +136,22 @@ export interface Invoice {
   total_amount: number;
   status: 'unpaid' | 'paid' | 'partial';
   paid_amount: number;
-  payment_method?: string | null;
-  payment_date?: string | null;
-  notes?: string | null;
+  payment_method: string | null;
+  payment_date: string | null;
+  notes: string | null;
   created_at: string;
   updated_at: string;
-  // Joined fields from Supabase select
+  // Joined relations
   orders?: JoinedOrder | null;
   profiles?: JoinedProfile | null;
 }
 
+// ─── Notification ──────────────────────────────────────────────────────────────
+
 export interface Notification {
   id: string;
   user_id: string;
-  order_id?: string;
+  order_id: string | null;
   title: string;
   message: string;
   type: 'info' | 'success' | 'warning' | 'error';
@@ -134,17 +159,21 @@ export interface Notification {
   created_at: string;
 }
 
+// ─── Delivery request ──────────────────────────────────────────────────────────
+
 export interface DeliveryRequest {
   id: string;
   order_id: string;
   optician_id: string;
   request_type: 'pickup' | 'delivery' | 'urgent';
-  preferred_time?: string;
-  address?: string;
-  notes?: string;
+  preferred_time: string | null;
+  address: string | null;
+  notes: string | null;
   status: 'pending' | 'confirmed' | 'completed' | 'cancelled';
   created_at: string;
 }
+
+// ─── UI helpers ────────────────────────────────────────────────────────────────
 
 export const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
   order_received: 'Order Received',

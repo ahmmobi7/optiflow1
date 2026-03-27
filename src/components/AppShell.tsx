@@ -54,7 +54,7 @@ export default function AppShell({ children, profile, notificationCount = 0 }: A
     router.push('/login');
   };
 
-  const displayName = profile.shop_name || profile.owner_name || profile.email;
+  const displayName = profile.shop_name ?? profile.owner_name ?? profile.email;
   const roleLabel = isAdmin ? 'Admin' : isTechnician ? 'Technician' : 'Optician';
   const roleBg = isAdmin ? 'bg-violet-100 text-violet-700' : isTechnician ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700';
 

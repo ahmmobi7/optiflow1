@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation';
 import { createServerClient } from '@/lib/supabase-server';
 import AppShell from '@/components/AppShell';
 import AdminOrdersClient from './AdminOrdersClient';
+import type { Profile, Order } from '@/types';
 
 export default async function AdminOrdersPage({
   searchParams,
@@ -12,8 +13,11 @@ export default async function AdminOrdersPage({
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) redirect('/login');
 
-  const { data: profile } = await supabase.from('profiles').select('*').eq('id', session.user.id).single();
-  if (!profile || profile.role !== 'admin') redirect('/dashboard');
+  const { data: profileRaw } = await supabase
+    .from('profiles').select('*').eq('id', session.user.id).single();
+  if (!profileRaw) redirect('/login');
+  const profile = profileRaw as unknown as Profile;
+  if (profile.role !== 'admin') redirect('/dashboard');
 
   let query = supabase
     .from('orders')
@@ -22,19 +26,24 @@ export default async function AdminOrdersPage({
     .order('created_at', { ascending: false });
 
   if (searchParams.status) query = query.eq('status', searchParams.status);
-  if (searchParams.urgent === 'true') query = query.eq('is_urgent', true).not('status', 'eq', 'delivered');
+  if (searchParams.urgent === 'true') {
+    query = query.eq('is_urgent', true).neq('status', 'delivered');
+  }
 
-  const { data: orders } = await query;
+  const { data: ordersRaw } = await query;
+  const orders = (ordersRaw ?? []) as unknown as Order[];
 
-  const { data: technicians } = await supabase
+  const { data: techsRaw } = await supabase
     .from('profiles')
     .select('id, owner_name, email')
     .eq('role', 'technician')
     .eq('is_active', true);
 
+  const technicians = (techsRaw ?? []) as { id: string; owner_name: string | null; email: string }[];
+
   return (
     <AppShell profile={profile}>
-      <AdminOrdersClient orders={orders || []} technicians={technicians || []} profile={profile} />
+      <AdminOrdersClient orders={orders} technicians={technicians} profile={profile} />
     </AppShell>
   );
 }

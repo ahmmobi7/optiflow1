@@ -2,14 +2,21 @@ import { redirect } from 'next/navigation';
 import { createServerClient } from '@/lib/supabase-server';
 import AppShell from '@/components/AppShell';
 import InvoicesClient from './InvoicesClient';
+import type { Profile, Invoice } from '@/types';
 
 export default async function InvoicesPage() {
   const supabase = createServerClient();
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) redirect('/login');
 
-  const { data: profile } = await supabase.from('profiles').select('*').eq('id', session.user.id).single();
-  if (!profile) redirect('/login');
+  const { data: profileRaw } = await supabase
+    .from('profiles')
+    .select('*')
+    .eq('id', session.user.id)
+    .single();
+
+  if (!profileRaw) redirect('/login');
+  const profile = profileRaw as unknown as Profile;
 
   let query = supabase
     .from('invoices')
@@ -20,11 +27,12 @@ export default async function InvoicesPage() {
     query = query.eq('optician_id', session.user.id);
   }
 
-  const { data: invoices } = await query;
+  const { data: invoicesRaw } = await query;
+  const invoices = (invoicesRaw ?? []) as unknown as Invoice[];
 
   return (
     <AppShell profile={profile}>
-      <InvoicesClient invoices={invoices || []} profile={profile} />
+      <InvoicesClient invoices={invoices} profile={profile} />
     </AppShell>
   );
 }

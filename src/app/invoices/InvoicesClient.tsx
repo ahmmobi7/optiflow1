@@ -13,7 +13,7 @@ interface InvoicesClientProps {
   profile: Profile;
 }
 
-export default function InvoicesClient({ invoices, profile }: InvoicesClientProps) {
+export default function InvoicesClient({ invoices }: InvoicesClientProps) {
   const [downloading, setDownloading] = useState<string | null>(null);
 
   const totalPaid = invoices.filter(i => i.status === 'paid').reduce((s, i) => s + i.total_amount, 0);
@@ -32,19 +32,19 @@ export default function InvoicesClient({ invoices, profile }: InvoicesClientProp
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       await generatePDF(orderForPDF as any, invoice);
       toast.success('Invoice downloaded!');
-    } catch (e) {
+    } catch {
       toast.error('Download failed');
     }
     setDownloading(null);
   };
 
   const StatusPill = ({ status }: { status: Invoice['status'] }) => {
-    const map = {
+    const map: Record<Invoice['status'], string> = {
       paid: 'bg-green-100 text-green-700',
       unpaid: 'bg-red-100 text-red-700',
       partial: 'bg-amber-100 text-amber-700',
     };
-    const icons = {
+    const icons: Record<Invoice['status'], React.ReactNode> = {
       paid: <CheckCircle2 className="w-3 h-3" />,
       unpaid: <AlertCircle className="w-3 h-3" />,
       partial: <Clock className="w-3 h-3" />,
@@ -64,7 +64,6 @@ export default function InvoicesClient({ invoices, profile }: InvoicesClientProp
       </div>
 
       <div className="p-4 lg:p-8 space-y-5">
-        {/* Summary cards */}
         <div className="grid grid-cols-3 gap-3">
           <div className="bg-white rounded-2xl p-4 border border-slate-100">
             <TrendingUp className="w-4 h-4 text-blue-600 mb-2" />
@@ -83,7 +82,6 @@ export default function InvoicesClient({ invoices, profile }: InvoicesClientProp
           </div>
         </div>
 
-        {/* Invoice list */}
         {invoices.length === 0 ? (
           <div className="bg-white rounded-2xl border border-slate-100 p-12 text-center">
             <FileText className="w-12 h-12 text-slate-200 mx-auto mb-3" />
@@ -93,8 +91,7 @@ export default function InvoicesClient({ invoices, profile }: InvoicesClientProp
         ) : (
           <div className="space-y-2.5">
             {invoices.map((invoice) => (
-              <div key={invoice.id}
-                className="bg-white rounded-2xl border border-slate-100 p-4 hover:border-blue-100 transition">
+              <div key={invoice.id} className="bg-white rounded-2xl border border-slate-100 p-4 hover:border-blue-100 transition">
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex items-start gap-3 min-w-0">
                     <div className="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center flex-shrink-0">
@@ -103,8 +100,7 @@ export default function InvoicesClient({ invoices, profile }: InvoicesClientProp
                     <div className="min-w-0">
                       <p className="font-semibold text-slate-900 text-sm">{invoice.invoice_number}</p>
                       {invoice.orders && (
-                        <Link href={`/orders/${invoice.order_id}`}
-                          className="text-xs text-blue-600 hover:underline">
+                        <Link href={`/orders/${invoice.order_id}`} className="text-xs text-blue-600 hover:underline">
                           {invoice.orders.order_number} · {invoice.orders.customer_name}
                         </Link>
                       )}
@@ -119,12 +115,12 @@ export default function InvoicesClient({ invoices, profile }: InvoicesClientProp
                     {invoice.status === 'partial' && (
                       <p className="text-xs text-green-600">{formatCurrency(invoice.paid_amount)} paid</p>
                     )}
-                    <button onClick={() => handleDownload(invoice)} disabled={downloading === invoice.id}
-                      className="mt-1.5 flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 font-medium transition ml-auto">
-                      {downloading === invoice.id
-                        ? <Loader2 className="w-3 h-3 animate-spin" />
-                        : <Download className="w-3 h-3" />
-                      }
+                    <button
+                      onClick={() => handleDownload(invoice)}
+                      disabled={downloading === invoice.id}
+                      className="mt-1.5 flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 font-medium transition ml-auto"
+                    >
+                      {downloading === invoice.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Download className="w-3 h-3" />}
                       PDF
                     </button>
                   </div>
