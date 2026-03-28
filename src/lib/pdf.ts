@@ -14,6 +14,9 @@ export async function generatePDF(order: Order | Record<string, any>, invoice: I
   const pageW = doc.internal.pageSize.getWidth();
   const margin = 20;
 
+  // chatgpt FIX: safe casting once
+  const safeOrder = order as Record<string, any>;
+  
   // Safe field readers (works with full Order or partial object)
   const get = (key: string): string => String(order[key] ?? '—');
   const getNum = (key: string): number => Number(order[key] ?? 0);
