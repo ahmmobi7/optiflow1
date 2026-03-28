@@ -1,13 +1,24 @@
-import type { Order, Invoice, JoinedProfile } from '@/types';
+import type { Invoice, JoinedProfile } from '@/types';
 import { formatDate, formatCurrency } from './utils';
 
-export async function generatePDF(order: Order, invoice: Invoice) {
+// Loose type so callers can pass full Order or partial joined objects
+type OrderLike = Record<string, unknown>;
+
+/**
+ * Accepts the full Order (from order detail page) or a slim partial order
+ * (from billing/invoices pages). All fields are read with nullish fallbacks.
+ */
+export async function generatePDF(order: OrderLike, invoice: Invoice) {
   const jsPDF = (await import('jspdf')).default;
   const autoTable = (await import('jspdf-autotable')).default;
 
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
   const pageW = doc.internal.pageSize.getWidth();
   const margin = 20;
+
+  // Safe field readers (works with full Order or partial object)
+  const get = (key: string): string => String(order[key] ?? '—');
+  const getNum = (key: string): number => Number(order[key] ?? 0);
 
   // ─── Header brand bar ────────────────────────────────────────────────────
   doc.setFillColor(37, 99, 235);
@@ -33,11 +44,10 @@ export async function generatePDF(order: Order, invoice: Invoice) {
   let y = 38;
   doc.setTextColor(30, 30, 30);
 
-  // Safely read joined profile fields
-  const joinedProfile = order.profiles as JoinedProfile | null | undefined;
-  const shopName = joinedProfile?.shop_name ?? 'Optician';
-  const ownerName = joinedProfile?.owner_name ?? '';
-  const gstNumber = joinedProfile?.gst_number ?? '';
+  const joinedProfile = (order.profiles ?? {}) as JoinedProfile;
+  const shopName = joinedProfile.shop_name ?? 'Optician';
+  const ownerName = joinedProfile.owner_name ?? '';
+  const gstNumber = joinedProfile.gst_number ?? '';
 
   doc.setFontSize(11);
   doc.setFont('helvetica', 'bold');
@@ -55,10 +65,10 @@ export async function generatePDF(order: Order, invoice: Invoice) {
   doc.setFontSize(9);
   const metaRows: [string, string][] = [
     ['Invoice No', invoice.invoice_number],
-    ['Order No', order.order_number],
+    ['Order No',   get('order_number')],
     ['Invoice Date', formatDate(invoice.created_at)],
-    ['Order Date', formatDate(order.created_at)],
-    ['Status', invoice.status.toUpperCase()],
+    ['Order Date',   formatDate(get('created_at'))],
+    ['Status',       invoice.status.toUpperCase()],
   ];
   metaRows.forEach(([label, value], i) => {
     doc.setFont('helvetica', 'bold');
@@ -86,12 +96,12 @@ export async function generatePDF(order: Order, invoice: Invoice) {
     margin: { left: margin, right: margin },
     head: [['Field', 'Details']],
     body: [
-      ['Patient Name', order.customer_name],
-      ['Frame Type', order.frame_type],
-      ['Lens Type', order.lens_type],
-      ['Lens Material', order.lens_material ?? '—'],
-      ['Coating', order.lens_coating ?? 'None'],
-      ['PD', order.pd_distance ?? '—'],
+      ['Patient Name', get('customer_name')],
+      ['Frame Type',   get('frame_type')],
+      ['Lens Type',    get('lens_type')],
+      ['Lens Material', get('lens_material')],
+      ['Coating',      get('lens_coating')],
+      ['PD',           get('pd_distance')],
     ],
     theme: 'striped',
     headStyles: { fillColor: [37, 99, 235], textColor: 255, fontStyle: 'bold', fontSize: 8 },
@@ -111,8 +121,8 @@ export async function generatePDF(order: Order, invoice: Invoice) {
     margin: { left: margin, right: margin },
     head: [['Eye', 'SPH', 'CYL', 'AXIS', 'ADD']],
     body: [
-      ['Right (RE)', order.re_sph ?? '—', order.re_cyl ?? '—', order.re_axis ?? '—', order.re_add ?? '—'],
-      ['Left (LE)', order.le_sph ?? '—', order.le_cyl ?? '—', order.le_axis ?? '—', order.le_add ?? '—'],
+      ['Right (RE)', get('re_sph'), get('re_cyl'), get('re_axis'), get('re_add')],
+      ['Left (LE)',  get('le_sph'), get('le_cyl'), get('le_axis'), get('le_add')],
     ],
     theme: 'grid',
     headStyles: { fillColor: [100, 116, 139], textColor: 255, fontStyle: 'bold', fontSize: 8 },

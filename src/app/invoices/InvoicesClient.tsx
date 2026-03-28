@@ -41,7 +41,7 @@ export default function InvoicesClient({ invoices }: InvoicesClientProps) {
         profiles: invoice.profiles,
         created_at: invoice.created_at,
       };
-      await generatePDF(orderData, invoice);
+      await generatePDF(orderData as Record<string, unknown>, invoice);
       toast.success('Invoice downloaded!');
     } catch {
       toast.error('Download failed');

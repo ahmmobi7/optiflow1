@@ -80,7 +80,7 @@ export default function BillingClient({ invoices: initialInvoices }: BillingClie
         profiles: invoice.profiles,
         created_at: invoice.created_at,
       };
-      await generatePDF(orderData, invoice);
+      await generatePDF(orderData as Record<string, unknown>, invoice);
       toast.success('Downloaded!');
     } catch {
       toast.error('Download failed');
