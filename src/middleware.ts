@@ -2,27 +2,29 @@ import { createMiddlewareClient } from '@supabase/auth-helpers-nextjs';
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
-const PUBLIC_ROUTES = ['/login', '/register'];
-
 export async function middleware(req: NextRequest) {
   const res = NextResponse.next();
   const supabase = createMiddlewareClient({ req, res });
 
-  // Refresh session cookie — required for Server Components to read auth state
+  // IMPORTANT: always call getSession so the middleware refreshes
+  // the auth cookie and passes it to Server Components correctly.
   const { data: { session } } = await supabase.auth.getSession();
 
   const { pathname } = req.nextUrl;
 
-  // Not logged in → redirect to login (except public routes)
-  if (!session && !PUBLIC_ROUTES.includes(pathname)) {
-    const loginUrl = new URL('/login', req.url);
-    return NextResponse.redirect(loginUrl);
+  // Allow all API routes through
+  if (pathname.startsWith('/api/')) return res;
+
+  const isAuthPage = pathname === '/login' || pathname === '/register';
+
+  // Not logged in → send to login (except auth pages themselves)
+  if (!session && !isAuthPage) {
+    return NextResponse.redirect(new URL('/login', req.url));
   }
 
-  // Logged in → don't let them sit on login/register
-  if (session && PUBLIC_ROUTES.includes(pathname)) {
-    // Let the root page.tsx handle the role-based redirect
-    return NextResponse.redirect(new URL('/', req.url));
+  // Logged in + on an auth page → send to role dispatcher
+  if (session && isAuthPage) {
+    return NextResponse.redirect(new URL('/auth/redirect', req.url));
   }
 
   return res;
@@ -30,6 +32,6 @@ export async function middleware(req: NextRequest) {
 
 export const config = {
   matcher: [
-    '/((?!_next/static|_next/image|favicon\\.ico|api|public).*)',
+    '/((?!_next/static|_next/image|favicon\\.ico|public).*)',
   ],
 };

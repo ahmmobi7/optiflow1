@@ -4,6 +4,9 @@ import AppShell from '@/components/AppShell';
 import DashboardClient from './DashboardClient';
 import type { Profile, Order } from '@/types';
 
+export const dynamic = 'force-dynamic';
+
+
 export default async function DashboardPage() {
   const supabase = createServerClient();
   const { data: { session } } = await supabase.auth.getSession();

@@ -4,6 +4,9 @@ import AppShell from '@/components/AppShell';
 import BillingClient from './BillingClient';
 import type { Profile, Invoice } from '@/types';
 
+export const dynamic = 'force-dynamic';
+
+
 export default async function AdminBillingPage() {
   const supabase = createServerClient();
   const { data: { session } } = await supabase.auth.getSession();

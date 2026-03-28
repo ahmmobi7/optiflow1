@@ -69,7 +69,7 @@ export default function RegisterPage() {
 
       toast.success('Account created! Signing you in...');
       // Hard redirect — session is set
-      window.location.href = '/dashboard';
+      window.location.href = '/auth/redirect';
     }
 
     setLoading(false);

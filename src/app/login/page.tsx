@@ -17,7 +17,7 @@ export default function LoginPage() {
     e.preventDefault();
     setLoading(true);
 
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
 
     if (error) {
       toast.error(error.message || 'Login failed. Please try again.');
@@ -25,35 +25,19 @@ export default function LoginPage() {
       return;
     }
 
-    if (data.session) {
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('id', data.session.user.id)
-        .single();
-
-      // Hard navigation so server components pick up the new session cookie
-      if (profile?.role === 'admin') {
-        window.location.href = '/admin';
-      } else if (profile?.role === 'technician') {
-        window.location.href = '/technician';
-      } else {
-        window.location.href = '/dashboard';
-      }
-    }
-
-    setLoading(false);
+    // Hard navigation — ensures the new session cookie is sent with the request.
+    // /auth/redirect reads the role server-side and sends to the right dashboard.
+    window.location.href = '/auth/redirect';
   };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900 flex items-center justify-center p-4">
       <div className="absolute inset-0 opacity-5" style={{
-        backgroundImage: `radial-gradient(circle at 1px 1px, #fff 1px, transparent 0)`,
+        backgroundImage: 'radial-gradient(circle at 1px 1px, #fff 1px, transparent 0)',
         backgroundSize: '32px 32px',
       }} />
 
       <div className="relative w-full max-w-md">
-        {/* Logo */}
         <div className="text-center mb-8">
           <div className="inline-flex items-center gap-3 mb-3">
             <div className="w-10 h-10 bg-blue-500 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/30">
@@ -64,15 +48,12 @@ export default function LoginPage() {
           <p className="text-slate-400 text-sm">Optical Lab Management Platform</p>
         </div>
 
-        {/* Card */}
         <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6 shadow-2xl">
           <h2 className="text-xl font-semibold text-white mb-6">Welcome back</h2>
 
           <form onSubmit={handleLogin} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-slate-300 mb-1.5">
-                Email address
-              </label>
+              <label className="block text-sm font-medium text-slate-300 mb-1.5">Email address</label>
               <input
                 type="email"
                 value={email}
@@ -84,9 +65,7 @@ export default function LoginPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-300 mb-1.5">
-                Password
-              </label>
+              <label className="block text-sm font-medium text-slate-300 mb-1.5">Password</label>
               <div className="relative">
                 <input
                   type={showPassword ? 'text' : 'password'}
@@ -101,9 +80,7 @@ export default function LoginPage() {
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition"
                 >
-                  {showPassword
-                    ? <EyeOff className="w-5 h-5" />
-                    : <Eye className="w-5 h-5" />}
+                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                 </button>
               </div>
             </div>
@@ -114,10 +91,7 @@ export default function LoginPage() {
               className="w-full py-3 bg-blue-600 hover:bg-blue-500 disabled:opacity-60 text-white font-semibold rounded-xl transition-all active:scale-[0.98] flex items-center justify-center gap-2 shadow-lg shadow-blue-600/20"
             >
               {loading ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  Signing in...
-                </>
+                <><Loader2 className="w-4 h-4 animate-spin" /> Signing in...</>
               ) : (
                 'Sign In'
               )}
