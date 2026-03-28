@@ -1,13 +1,21 @@
 import { createServerClient } from './supabase-server';
+import { createClient as createServiceClient } from '@supabase/supabase-js';
 import { redirect } from 'next/navigation';
 import type { Profile } from '@/types';
 
+/** Service-role client — bypasses RLS, server-only */
+function getServiceClient() {
+  return createServiceClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { autoRefreshToken: false, persistSession: false } }
+  );
+}
+
 /**
- * Call this at the top of every protected Server Component page.
- * - Redirects to /login if not authenticated.
- * - If profile row is missing (e.g. admin created via Supabase dashboard),
- *   it creates a default profile so the app never loops.
- * - Returns the typed Profile.
+ * Call at the top of every protected Server Component.
+ * Returns the typed Profile. Redirects to /login if no session.
+ * If profile row is missing, creates it via service role (bypasses RLS).
  */
 export async function requireAuth(): Promise<Profile> {
   const supabase = createServerClient();
@@ -21,31 +29,32 @@ export async function requireAuth(): Promise<Profile> {
     .eq('id', session.user.id)
     .single();
 
-  if (profileRaw) {
-    return profileRaw as unknown as Profile;
-  }
+  if (profileRaw) return profileRaw as unknown as Profile;
 
-  // Profile row missing — upsert a default one so the app doesn't loop
+  // Profile missing — create it via service role (no RLS restriction)
+  // Read role from JWT metadata set during signup/admin creation
+  const metaRole = (session.user.user_metadata?.role as string) ?? 'optician';
   const defaultProfile = {
     id: session.user.id,
     email: session.user.email ?? '',
-    role: (session.user.user_metadata?.role as string) ?? 'optician',
-    shop_name: null,
-    owner_name: null,
-    phone: null,
-    address: null,
-    gst_number: null,
+    role: metaRole,
+    shop_name: null as string | null,
+    owner_name: null as string | null,
+    phone: null as string | null,
+    address: null as string | null,
+    gst_number: null as string | null,
     is_active: true,
   };
 
-  await supabase.from('profiles').upsert(defaultProfile);
+  const service = getServiceClient();
+  await service.from('profiles').upsert(defaultProfile);
 
   return defaultProfile as Profile;
 }
 
 /**
- * Like requireAuth but also checks the role.
- * Redirects to /dashboard if the role doesn't match.
+ * Like requireAuth but also enforces role.
+ * Redirects to /dashboard if role not allowed.
  */
 export async function requireRole(allowedRoles: Profile['role'][]): Promise<Profile> {
   const profile = await requireAuth();

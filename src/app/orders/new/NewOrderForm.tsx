@@ -103,26 +103,23 @@ export default function NewOrderForm({ profile }: NewOrderFormProps) {
         estimated_delivery: form.estimated_delivery || null,
       }).select().single();
 
-      if (error) throw error;
+      if (error) throw new Error(error.message);
 
-      // Add initial status history
-      await supabase.from('order_status_history').insert({
-        order_id: order.id, status: 'order_received', updated_by: profile.id, notes: 'Order placed by optician',
-      });
-
-      // Create notification for admin
+      // Notification for optician (self)
       await supabase.from('notifications').insert({
         user_id: profile.id,
         order_id: order.id,
         title: 'Order placed successfully',
         message: `Order ${orderNumber} for ${form.customer_name} has been submitted.`,
         type: 'success',
-      });
+      }).then(() => {}); // ignore errors on notification
 
       toast.success(`Order ${orderNumber} placed!`);
       router.push(`/orders/${order.id}`);
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : 'Failed to place order');
+      const msg = err instanceof Error ? err.message : 'Failed to place order';
+      toast.error(msg);
+      console.error('Order error:', err);
     }
     setLoading(false);
   };
