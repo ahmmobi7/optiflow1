@@ -1,14 +1,12 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase';
 import toast from 'react-hot-toast';
 import { Eye, EyeOff, Layers, Loader2 } from 'lucide-react';
 
 export default function LoginPage() {
-  const router = useRouter();
   const supabase = createClient();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -34,10 +32,14 @@ export default function LoginPage() {
         .eq('id', data.session.user.id)
         .single();
 
-      if (profile?.role === 'admin') router.push('/admin');
-      else if (profile?.role === 'technician') router.push('/technician');
-      else router.push('/dashboard');
-      router.refresh();
+      // Hard navigation so server components pick up the new session cookie
+      if (profile?.role === 'admin') {
+        window.location.href = '/admin';
+      } else if (profile?.role === 'technician') {
+        window.location.href = '/technician';
+      } else {
+        window.location.href = '/dashboard';
+      }
     }
 
     setLoading(false);
@@ -45,7 +47,6 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900 flex items-center justify-center p-4">
-      {/* Background pattern */}
       <div className="absolute inset-0 opacity-5" style={{
         backgroundImage: `radial-gradient(circle at 1px 1px, #fff 1px, transparent 0)`,
         backgroundSize: '32px 32px',
@@ -69,7 +70,9 @@ export default function LoginPage() {
 
           <form onSubmit={handleLogin} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-slate-300 mb-1.5">Email address</label>
+              <label className="block text-sm font-medium text-slate-300 mb-1.5">
+                Email address
+              </label>
               <input
                 type="email"
                 value={email}
@@ -81,7 +84,9 @@ export default function LoginPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-300 mb-1.5">Password</label>
+              <label className="block text-sm font-medium text-slate-300 mb-1.5">
+                Password
+              </label>
               <div className="relative">
                 <input
                   type={showPassword ? 'text' : 'password'}
@@ -96,7 +101,9 @@ export default function LoginPage() {
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition"
                 >
-                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                  {showPassword
+                    ? <EyeOff className="w-5 h-5" />
+                    : <Eye className="w-5 h-5" />}
                 </button>
               </div>
             </div>
@@ -126,7 +133,7 @@ export default function LoginPage() {
         </div>
 
         <p className="text-center text-xs text-slate-600 mt-6">
-          Lab technicians & admins contact your lab manager for credentials.
+          Lab technicians &amp; admins — contact your lab manager for credentials.
         </p>
       </div>
     </div>

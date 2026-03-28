@@ -16,7 +16,7 @@ interface BillingClientProps {
   profile: Profile;
 }
 
-export default function BillingClient({ invoices: initialInvoices, profile }: BillingClientProps) {
+export default function BillingClient({ invoices: initialInvoices }: BillingClientProps) {
   const supabase = createClient();
   const [invoices, setInvoices] = useState(initialInvoices);
   const [downloading, setDownloading] = useState<string | null>(null);
@@ -24,8 +24,12 @@ export default function BillingClient({ invoices: initialInvoices, profile }: Bi
   const [search, setSearch] = useState('');
 
   const totalRevenue = invoices.reduce((s, i) => s + i.total_amount, 0);
-  const paidRevenue = invoices.filter(i => i.status === 'paid').reduce((s, i) => s + i.total_amount, 0);
-  const unpaidRevenue = invoices.filter(i => i.status === 'unpaid').reduce((s, i) => s + i.total_amount, 0);
+  const paidRevenue = invoices
+    .filter(i => i.status === 'paid')
+    .reduce((s, i) => s + i.total_amount, 0);
+  const unpaidRevenue = invoices
+    .filter(i => i.status === 'unpaid')
+    .reduce((s, i) => s + i.total_amount, 0);
 
   const filtered = invoices.filter(i => {
     if (!search.trim()) return true;
@@ -53,7 +57,9 @@ export default function BillingClient({ invoices: initialInvoices, profile }: Bi
     } else {
       setInvoices(prev =>
         prev.map(i =>
-          i.id === invoice.id ? { ...i, status: 'paid' as const, paid_amount: i.total_amount } : i
+          i.id === invoice.id
+            ? { ...i, status: 'paid' as const, paid_amount: i.total_amount }
+            : i
         )
       );
       toast.success('Marked as paid!');
@@ -68,13 +74,13 @@ export default function BillingClient({ invoices: initialInvoices, profile }: Bi
     }
     setDownloading(invoice.id);
     try {
-      const orderForPDF = {
+      const orderData = {
         ...invoice.orders,
         optician_id: invoice.optician_id,
         profiles: invoice.profiles,
+        created_at: invoice.created_at,
       };
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await generatePDF(orderForPDF as any, invoice);
+      await generatePDF(orderData, invoice);
       toast.success('Downloaded!');
     } catch {
       toast.error('Download failed');
@@ -83,13 +89,13 @@ export default function BillingClient({ invoices: initialInvoices, profile }: Bi
   };
 
   const StatusPill = ({ status }: { status: Invoice['status'] }) => {
-    const map: Record<Invoice['status'], string> = {
+    const styles: Record<Invoice['status'], string> = {
       paid: 'bg-green-100 text-green-700',
       unpaid: 'bg-red-100 text-red-700',
       partial: 'bg-amber-100 text-amber-700',
     };
     return (
-      <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${map[status]}`}>
+      <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${styles[status]}`}>
         {status.charAt(0).toUpperCase() + status.slice(1)}
       </span>
     );
@@ -103,6 +109,7 @@ export default function BillingClient({ invoices: initialInvoices, profile }: Bi
       </div>
 
       <div className="p-4 lg:p-8 space-y-5">
+        {/* Revenue summary */}
         <div className="grid grid-cols-3 gap-3">
           <div className="bg-gradient-to-br from-blue-600 to-blue-700 rounded-2xl p-4 text-white">
             <TrendingUp className="w-4 h-4 opacity-70 mb-2" />
@@ -121,6 +128,7 @@ export default function BillingClient({ invoices: initialInvoices, profile }: Bi
           </div>
         </div>
 
+        {/* Search */}
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
           <input
@@ -131,6 +139,7 @@ export default function BillingClient({ invoices: initialInvoices, profile }: Bi
           />
         </div>
 
+        {/* List */}
         {filtered.length === 0 ? (
           <div className="bg-white rounded-2xl border border-slate-100 p-12 text-center">
             <FileText className="w-12 h-12 text-slate-200 mx-auto mb-3" />
@@ -139,14 +148,19 @@ export default function BillingClient({ invoices: initialInvoices, profile }: Bi
         ) : (
           <div className="space-y-2.5">
             {filtered.map(invoice => (
-              <div key={invoice.id} className="bg-white rounded-2xl border border-slate-100 hover:border-blue-100 transition p-4">
+              <div
+                key={invoice.id}
+                className="bg-white rounded-2xl border border-slate-100 hover:border-blue-100 transition p-4"
+              >
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex items-start gap-3 min-w-0">
                     <div className="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center flex-shrink-0">
                       <FileText className="w-5 h-5 text-blue-500" />
                     </div>
                     <div className="min-w-0">
-                      <p className="font-semibold text-slate-900 text-sm">{invoice.invoice_number}</p>
+                      <p className="font-semibold text-slate-900 text-sm">
+                        {invoice.invoice_number}
+                      </p>
                       <p className="text-xs text-slate-500 mt-0.5">
                         {invoice.profiles?.shop_name ?? invoice.profiles?.owner_name ?? 'Unknown'}
                       </p>
@@ -157,12 +171,16 @@ export default function BillingClient({ invoices: initialInvoices, profile }: Bi
                       )}
                       <div className="flex items-center gap-2 mt-1.5">
                         <StatusPill status={invoice.status} />
-                        <span className="text-xs text-slate-300">{formatDate(invoice.created_at)}</span>
+                        <span className="text-xs text-slate-300">
+                          {formatDate(invoice.created_at)}
+                        </span>
                       </div>
                     </div>
                   </div>
                   <div className="flex-shrink-0 text-right space-y-2">
-                    <p className="font-bold text-slate-900">{formatCurrency(invoice.total_amount)}</p>
+                    <p className="font-bold text-slate-900">
+                      {formatCurrency(invoice.total_amount)}
+                    </p>
                     <div className="flex items-center gap-1.5 justify-end">
                       {invoice.status !== 'paid' && (
                         <button
@@ -170,7 +188,9 @@ export default function BillingClient({ invoices: initialInvoices, profile }: Bi
                           disabled={updating === invoice.id}
                           className="flex items-center gap-1 text-xs bg-green-100 text-green-700 hover:bg-green-200 font-semibold px-2 py-1 rounded-lg transition"
                         >
-                          {updating === invoice.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <DollarSign className="w-3 h-3" />}
+                          {updating === invoice.id
+                            ? <Loader2 className="w-3 h-3 animate-spin" />
+                            : <DollarSign className="w-3 h-3" />}
                           Paid
                         </button>
                       )}
@@ -179,7 +199,9 @@ export default function BillingClient({ invoices: initialInvoices, profile }: Bi
                         disabled={downloading === invoice.id}
                         className="flex items-center gap-1 text-xs bg-slate-100 text-slate-600 hover:bg-slate-200 font-medium px-2 py-1 rounded-lg transition"
                       >
-                        {downloading === invoice.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Download className="w-3 h-3" />}
+                        {downloading === invoice.id
+                          ? <Loader2 className="w-3 h-3 animate-spin" />
+                          : <Download className="w-3 h-3" />}
                         PDF
                       </button>
                     </div>

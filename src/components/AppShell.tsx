@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import { createClient } from '@/lib/supabase';
 import type { Profile } from '@/types';
 import {
@@ -18,7 +18,6 @@ interface AppShellProps {
 
 export default function AppShell({ children, profile, notificationCount = 0 }: AppShellProps) {
   const pathname = usePathname();
-  const router = useRouter();
   const supabase = createClient();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -51,7 +50,7 @@ export default function AppShell({ children, profile, notificationCount = 0 }: A
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
-    router.push('/login');
+    window.location.href = '/login';
   };
 
   const displayName = profile.shop_name ?? profile.owner_name ?? profile.email;

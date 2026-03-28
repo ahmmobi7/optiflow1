@@ -5,6 +5,7 @@ import type { Profile } from '@/types';
 export default async function RootPage() {
   const supabase = createServerClient();
   const { data: { session } } = await supabase.auth.getSession();
+
   if (!session) redirect('/login');
 
   const { data: profileRaw } = await supabase
@@ -13,9 +14,9 @@ export default async function RootPage() {
     .eq('id', session.user.id)
     .single();
 
-  const profile = profileRaw as unknown as Pick<Profile, 'role'> | null;
+  const role = (profileRaw as unknown as Pick<Profile, 'role'> | null)?.role;
 
-  if (profile?.role === 'admin') redirect('/admin');
-  if (profile?.role === 'technician') redirect('/technician');
+  if (role === 'admin') redirect('/admin');
+  if (role === 'technician') redirect('/technician');
   redirect('/dashboard');
 }

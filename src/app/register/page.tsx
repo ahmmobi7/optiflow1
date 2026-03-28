@@ -1,16 +1,15 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase';
 import toast from 'react-hot-toast';
 import { Layers, Loader2, ArrowLeft, ArrowRight, Check } from 'lucide-react';
 
 type Step = 1 | 2;
+const STEPS: Step[] = [1, 2];
 
 export default function RegisterPage() {
-  const router = useRouter();
   const supabase = createClient();
   const [step, setStep] = useState<Step>(1);
   const [loading, setLoading] = useState(false);
@@ -25,8 +24,7 @@ export default function RegisterPage() {
     gst_number: '',
   });
 
-  const update = (key: string, value: string) =>
-    setForm(prev => ({ ...prev, [key]: value }));
+  const u = (key: string, value: string) => setForm(prev => ({ ...prev, [key]: value }));
 
   const handleNext = (e: React.FormEvent) => {
     e.preventDefault();
@@ -48,9 +46,7 @@ export default function RegisterPage() {
     const { data, error } = await supabase.auth.signUp({
       email: form.email,
       password: form.password,
-      options: {
-        data: { role: 'optician' },
-      },
+      options: { data: { role: 'optician' } },
     });
 
     if (error) {
@@ -60,25 +56,20 @@ export default function RegisterPage() {
     }
 
     if (data.user) {
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .update({
-          shop_name: form.shop_name,
-          owner_name: form.owner_name,
-          phone: form.phone,
-          address: form.address,
-          gst_number: form.gst_number || null,
-          role: 'optician',
-        })
-        .eq('id', data.user.id);
+      await supabase.from('profiles').upsert({
+        id: data.user.id,
+        email: form.email,
+        shop_name: form.shop_name,
+        owner_name: form.owner_name,
+        phone: form.phone,
+        address: form.address,
+        gst_number: form.gst_number || null,
+        role: 'optician',
+      });
 
-      if (profileError) {
-        // Profile might not exist yet if email confirmation needed
-        toast.success('Account created! Please check your email to verify.');
-      } else {
-        toast.success('Account created successfully!');
-        router.push('/dashboard');
-      }
+      toast.success('Account created! Signing you in...');
+      // Hard redirect — session is set
+      window.location.href = '/dashboard';
     }
 
     setLoading(false);
@@ -102,17 +93,20 @@ export default function RegisterPage() {
           <p className="text-slate-400 text-sm">Register your optical shop</p>
         </div>
 
-        {/* Step indicator */}
+        {/* Step indicators */}
         <div className="flex items-center justify-center gap-2 mb-6">
-          {[1, 2].map((s) => (
+          {STEPS.map((s) => (
             <div key={s} className="flex items-center gap-2">
               <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold transition-all ${
                 step === s ? 'bg-blue-500 text-white' :
-                step > s ? 'bg-green-500 text-white' : 'bg-white/10 text-slate-400'
+                step > s ? 'bg-green-500 text-white' :
+                'bg-white/10 text-slate-400'
               }`}>
                 {step > s ? <Check className="w-4 h-4" /> : s}
               </div>
-              {s < 2 && <div className={`w-12 h-0.5 ${step > s ? 'bg-green-500' : 'bg-white/10'}`} />}
+              {s < 2 && (
+                <div className={`w-12 h-0.5 ${step > s ? 'bg-green-500' : 'bg-white/10'}`} />
+              )}
             </div>
           ))}
         </div>
@@ -125,19 +119,19 @@ export default function RegisterPage() {
               <form onSubmit={handleNext} className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-slate-300 mb-1.5">Email address</label>
-                  <input type="email" required value={form.email} onChange={e => update('email', e.target.value)}
+                  <input type="email" required value={form.email} onChange={e => u('email', e.target.value)}
                     placeholder="you@example.com"
                     className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-slate-500 focus:border-blue-400 transition text-sm" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-slate-300 mb-1.5">Password</label>
-                  <input type="password" required value={form.password} onChange={e => update('password', e.target.value)}
+                  <input type="password" required value={form.password} onChange={e => u('password', e.target.value)}
                     placeholder="Min. 6 characters"
                     className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-slate-500 focus:border-blue-400 transition text-sm" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-slate-300 mb-1.5">Confirm password</label>
-                  <input type="password" required value={form.confirmPassword} onChange={e => update('confirmPassword', e.target.value)}
+                  <input type="password" required value={form.confirmPassword} onChange={e => u('confirmPassword', e.target.value)}
                     placeholder="Repeat your password"
                     className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-slate-500 focus:border-blue-400 transition text-sm" />
                 </div>
@@ -157,40 +151,42 @@ export default function RegisterPage() {
               </div>
               <p className="text-slate-400 text-sm mb-6 ml-7">Step 2 of 2 — Your shop information</p>
               <form onSubmit={handleSubmit} className="space-y-4">
+                {[
+                  { label: 'Shop name', key: 'shop_name', placeholder: 'Vision Care Optics', required: true },
+                  { label: 'Owner name', key: 'owner_name', placeholder: 'Rajesh Sharma', required: true },
+                  { label: 'Phone number', key: 'phone', placeholder: '+91 98765 43210', required: true },
+                  { label: 'GST number', key: 'gst_number', placeholder: '22AAAAA0000A1Z5', required: false },
+                ].map(({ label, key, placeholder, required }) => (
+                  <div key={key}>
+                    <label className="block text-sm font-medium text-slate-300 mb-1.5">
+                      {label} {required ? <span className="text-red-400">*</span> : <span className="text-slate-500">(optional)</span>}
+                    </label>
+                    <input
+                      type="text"
+                      required={required}
+                      value={form[key as keyof typeof form]}
+                      onChange={e => u(key, e.target.value)}
+                      placeholder={placeholder}
+                      className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-slate-500 focus:border-blue-400 transition text-sm"
+                    />
+                  </div>
+                ))}
                 <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-1.5">Shop name <span className="text-red-400">*</span></label>
-                  <input type="text" required value={form.shop_name} onChange={e => update('shop_name', e.target.value)}
-                    placeholder="Vision Care Optics"
-                    className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-slate-500 focus:border-blue-400 transition text-sm" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-1.5">Owner name <span className="text-red-400">*</span></label>
-                  <input type="text" required value={form.owner_name} onChange={e => update('owner_name', e.target.value)}
-                    placeholder="Rajesh Sharma"
-                    className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-slate-500 focus:border-blue-400 transition text-sm" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-1.5">Phone number <span className="text-red-400">*</span></label>
-                  <input type="tel" required value={form.phone} onChange={e => update('phone', e.target.value)}
-                    placeholder="+91 98765 43210"
-                    className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-slate-500 focus:border-blue-400 transition text-sm" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-1.5">Shop address <span className="text-red-400">*</span></label>
-                  <textarea required value={form.address} onChange={e => update('address', e.target.value)}
+                  <label className="block text-sm font-medium text-slate-300 mb-1.5">
+                    Shop address <span className="text-red-400">*</span>
+                  </label>
+                  <textarea
+                    required
+                    value={form.address}
+                    onChange={e => u('address', e.target.value)}
                     placeholder="Shop No. 5, Main Market, Mumbai 400001"
                     rows={2}
-                    className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-slate-500 focus:border-blue-400 transition text-sm resize-none" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-1.5">GST number <span className="text-slate-500">(optional)</span></label>
-                  <input type="text" value={form.gst_number} onChange={e => update('gst_number', e.target.value)}
-                    placeholder="22AAAAA0000A1Z5"
-                    className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-slate-500 focus:border-blue-400 transition text-sm" />
+                    className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-slate-500 focus:border-blue-400 transition text-sm resize-none"
+                  />
                 </div>
                 <button type="submit" disabled={loading}
                   className="w-full py-3 bg-blue-600 hover:bg-blue-500 disabled:opacity-60 text-white font-semibold rounded-xl transition-all active:scale-[0.98] flex items-center justify-center gap-2">
-                  {loading ? <><Loader2 className="w-4 h-4 animate-spin" />Creating account...</> : <>Create Account <Check className="w-4 h-4" /></>}
+                  {loading ? <><Loader2 className="w-4 h-4 animate-spin" />Creating...</> : <>Create Account <Check className="w-4 h-4" /></>}
                 </button>
               </form>
             </>

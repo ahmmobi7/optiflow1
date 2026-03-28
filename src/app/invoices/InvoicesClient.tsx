@@ -5,7 +5,10 @@ import Link from 'next/link';
 import type { Invoice, Profile } from '@/types';
 import { formatDate, formatCurrency } from '@/lib/utils';
 import { generatePDF } from '@/lib/pdf';
-import { FileText, Download, TrendingUp, CheckCircle2, Clock, AlertCircle, Loader2 } from 'lucide-react';
+import {
+  FileText, Download, TrendingUp, CheckCircle2,
+  Clock, AlertCircle, Loader2,
+} from 'lucide-react';
 import toast from 'react-hot-toast';
 
 interface InvoicesClientProps {
@@ -16,21 +19,29 @@ interface InvoicesClientProps {
 export default function InvoicesClient({ invoices }: InvoicesClientProps) {
   const [downloading, setDownloading] = useState<string | null>(null);
 
-  const totalPaid = invoices.filter(i => i.status === 'paid').reduce((s, i) => s + i.total_amount, 0);
-  const totalUnpaid = invoices.filter(i => i.status === 'unpaid').reduce((s, i) => s + i.total_amount, 0);
+  const totalPaid = invoices
+    .filter(i => i.status === 'paid')
+    .reduce((s, i) => s + i.total_amount, 0);
+  const totalUnpaid = invoices
+    .filter(i => i.status === 'unpaid')
+    .reduce((s, i) => s + i.total_amount, 0);
   const totalAmount = invoices.reduce((s, i) => s + i.total_amount, 0);
 
   const handleDownload = async (invoice: Invoice) => {
-    if (!invoice.orders) { toast.error('Order not found'); return; }
+    if (!invoice.orders) {
+      toast.error('Order not found');
+      return;
+    }
     setDownloading(invoice.id);
     try {
-      const orderForPDF = {
+      // Pass a merged object: joined order fields + optician/profile data
+      const orderData = {
         ...invoice.orders,
         optician_id: invoice.optician_id,
         profiles: invoice.profiles,
+        created_at: invoice.created_at,
       };
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await generatePDF(orderForPDF as any, invoice);
+      await generatePDF(orderData, invoice);
       toast.success('Invoice downloaded!');
     } catch {
       toast.error('Download failed');
@@ -39,7 +50,7 @@ export default function InvoicesClient({ invoices }: InvoicesClientProps) {
   };
 
   const StatusPill = ({ status }: { status: Invoice['status'] }) => {
-    const map: Record<Invoice['status'], string> = {
+    const styles: Record<Invoice['status'], string> = {
       paid: 'bg-green-100 text-green-700',
       unpaid: 'bg-red-100 text-red-700',
       partial: 'bg-amber-100 text-amber-700',
@@ -50,8 +61,9 @@ export default function InvoicesClient({ invoices }: InvoicesClientProps) {
       partial: <Clock className="w-3 h-3" />,
     };
     return (
-      <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full ${map[status]}`}>
-        {icons[status]} {status.charAt(0).toUpperCase() + status.slice(1)}
+      <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full ${styles[status]}`}>
+        {icons[status]}
+        {status.charAt(0).toUpperCase() + status.slice(1)}
       </span>
     );
   };
@@ -64,6 +76,7 @@ export default function InvoicesClient({ invoices }: InvoicesClientProps) {
       </div>
 
       <div className="p-4 lg:p-8 space-y-5">
+        {/* Stats */}
         <div className="grid grid-cols-3 gap-3">
           <div className="bg-white rounded-2xl p-4 border border-slate-100">
             <TrendingUp className="w-4 h-4 text-blue-600 mb-2" />
@@ -86,41 +99,59 @@ export default function InvoicesClient({ invoices }: InvoicesClientProps) {
           <div className="bg-white rounded-2xl border border-slate-100 p-12 text-center">
             <FileText className="w-12 h-12 text-slate-200 mx-auto mb-3" />
             <p className="font-semibold text-slate-900 mb-1">No invoices yet</p>
-            <p className="text-slate-400 text-sm">Invoices are generated when orders are completed</p>
+            <p className="text-slate-400 text-sm">
+              Invoices are generated when orders are completed
+            </p>
           </div>
         ) : (
           <div className="space-y-2.5">
-            {invoices.map((invoice) => (
-              <div key={invoice.id} className="bg-white rounded-2xl border border-slate-100 p-4 hover:border-blue-100 transition">
+            {invoices.map(invoice => (
+              <div
+                key={invoice.id}
+                className="bg-white rounded-2xl border border-slate-100 p-4 hover:border-blue-100 transition"
+              >
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex items-start gap-3 min-w-0">
                     <div className="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center flex-shrink-0">
                       <FileText className="w-5 h-5 text-blue-500" />
                     </div>
                     <div className="min-w-0">
-                      <p className="font-semibold text-slate-900 text-sm">{invoice.invoice_number}</p>
+                      <p className="font-semibold text-slate-900 text-sm">
+                        {invoice.invoice_number}
+                      </p>
                       {invoice.orders && (
-                        <Link href={`/orders/${invoice.order_id}`} className="text-xs text-blue-600 hover:underline">
+                        <Link
+                          href={`/orders/${invoice.order_id}`}
+                          className="text-xs text-blue-600 hover:underline"
+                        >
                           {invoice.orders.order_number} · {invoice.orders.customer_name}
                         </Link>
                       )}
                       <div className="flex items-center gap-2 mt-1.5">
                         <StatusPill status={invoice.status} />
-                        <span className="text-xs text-slate-400">{formatDate(invoice.created_at)}</span>
+                        <span className="text-xs text-slate-400">
+                          {formatDate(invoice.created_at)}
+                        </span>
                       </div>
                     </div>
                   </div>
                   <div className="text-right flex-shrink-0">
-                    <p className="font-bold text-slate-900">{formatCurrency(invoice.total_amount)}</p>
+                    <p className="font-bold text-slate-900">
+                      {formatCurrency(invoice.total_amount)}
+                    </p>
                     {invoice.status === 'partial' && (
-                      <p className="text-xs text-green-600">{formatCurrency(invoice.paid_amount)} paid</p>
+                      <p className="text-xs text-green-600">
+                        {formatCurrency(invoice.paid_amount)} paid
+                      </p>
                     )}
                     <button
                       onClick={() => handleDownload(invoice)}
                       disabled={downloading === invoice.id}
                       className="mt-1.5 flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 font-medium transition ml-auto"
                     >
-                      {downloading === invoice.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Download className="w-3 h-3" />}
+                      {downloading === invoice.id
+                        ? <Loader2 className="w-3 h-3 animate-spin" />
+                        : <Download className="w-3 h-3" />}
                       PDF
                     </button>
                   </div>
