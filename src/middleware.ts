@@ -2,36 +2,20 @@ import { createMiddlewareClient } from '@supabase/auth-helpers-nextjs';
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
+/**
+ * The ONLY job of this middleware is to refresh the Supabase auth cookie
+ * so that Server Components can read the session via createServerClient().
+ * All auth redirects are handled inside the Server Component pages themselves.
+ */
 export async function middleware(req: NextRequest) {
   const res = NextResponse.next();
   const supabase = createMiddlewareClient({ req, res });
-
-  // IMPORTANT: always call getSession so the middleware refreshes
-  // the auth cookie and passes it to Server Components correctly.
-  const { data: { session } } = await supabase.auth.getSession();
-
-  const { pathname } = req.nextUrl;
-
-  // Allow all API routes through
-  if (pathname.startsWith('/api/')) return res;
-
-  const isAuthPage = pathname === '/login' || pathname === '/register';
-
-  // Not logged in → send to login (except auth pages themselves)
-  if (!session && !isAuthPage) {
-    return NextResponse.redirect(new URL('/login', req.url));
-  }
-
-  // Logged in + on an auth page → send to role dispatcher
-  if (session && isAuthPage) {
-    return NextResponse.redirect(new URL('/auth/redirect', req.url));
-  }
-
+  // Refreshes expired Access Token using the Refresh Token cookie
+  await supabase.auth.getSession();
   return res;
 }
 
 export const config = {
-  matcher: [
-    '/((?!_next/static|_next/image|favicon\\.ico|public).*)',
-  ],
+  // Run on every route except static files and image optimisation
+  matcher: ['/((?!_next/static|_next/image|favicon\\.ico|public).*)'],
 };

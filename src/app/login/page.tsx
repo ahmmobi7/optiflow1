@@ -20,14 +20,13 @@ export default function LoginPage() {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
 
     if (error) {
-      toast.error(error.message || 'Login failed. Please try again.');
+      toast.error(error.message || 'Login failed.');
       setLoading(false);
       return;
     }
 
-    // Hard navigation — ensures the new session cookie is sent with the request.
-    // /auth/redirect reads the role server-side and sends to the right dashboard.
-    window.location.href = '/auth/redirect';
+    // Full page load → middleware refreshes cookie → / reads role → correct dashboard
+    window.location.replace('/');
   };
 
   return (
@@ -36,7 +35,6 @@ export default function LoginPage() {
         backgroundImage: 'radial-gradient(circle at 1px 1px, #fff 1px, transparent 0)',
         backgroundSize: '32px 32px',
       }} />
-
       <div className="relative w-full max-w-md">
         <div className="text-center mb-8">
           <div className="inline-flex items-center gap-3 mb-3">
@@ -50,54 +48,34 @@ export default function LoginPage() {
 
         <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6 shadow-2xl">
           <h2 className="text-xl font-semibold text-white mb-6">Welcome back</h2>
-
           <form onSubmit={handleLogin} className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-slate-300 mb-1.5">Email address</label>
               <input
-                type="email"
-                value={email}
-                onChange={e => setEmail(e.target.value)}
-                required
+                type="email" value={email} onChange={e => setEmail(e.target.value)} required
                 placeholder="you@example.com"
-                className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-slate-500 focus:border-blue-400 focus:bg-white/15 transition text-sm"
+                className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-slate-500 focus:border-blue-400 transition text-sm"
               />
             </div>
-
             <div>
               <label className="block text-sm font-medium text-slate-300 mb-1.5">Password</label>
               <div className="relative">
                 <input
-                  type={showPassword ? 'text' : 'password'}
-                  value={password}
-                  onChange={e => setPassword(e.target.value)}
-                  required
-                  placeholder="••••••••"
-                  className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-slate-500 focus:border-blue-400 focus:bg-white/15 transition text-sm pr-12"
+                  type={showPassword ? 'text' : 'password'} value={password}
+                  onChange={e => setPassword(e.target.value)} required placeholder="••••••••"
+                  className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-slate-500 focus:border-blue-400 transition text-sm pr-12"
                 />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition"
-                >
+                <button type="button" onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition">
                   {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                 </button>
               </div>
             </div>
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full py-3 bg-blue-600 hover:bg-blue-500 disabled:opacity-60 text-white font-semibold rounded-xl transition-all active:scale-[0.98] flex items-center justify-center gap-2 shadow-lg shadow-blue-600/20"
-            >
-              {loading ? (
-                <><Loader2 className="w-4 h-4 animate-spin" /> Signing in...</>
-              ) : (
-                'Sign In'
-              )}
+            <button type="submit" disabled={loading}
+              className="w-full py-3 bg-blue-600 hover:bg-blue-500 disabled:opacity-60 text-white font-semibold rounded-xl transition-all flex items-center justify-center gap-2 shadow-lg shadow-blue-600/20">
+              {loading ? <><Loader2 className="w-4 h-4 animate-spin" />Signing in...</> : 'Sign In'}
             </button>
           </form>
-
           <p className="text-center text-sm text-slate-400 mt-5">
             New optician?{' '}
             <Link href="/register" className="text-blue-400 hover:text-blue-300 font-medium transition">
@@ -105,7 +83,6 @@ export default function LoginPage() {
             </Link>
           </p>
         </div>
-
         <p className="text-center text-xs text-slate-600 mt-6">
           Lab technicians &amp; admins — contact your lab manager for credentials.
         </p>
