@@ -1,15 +1,14 @@
--- Run this in Supabase SQL Editor to fix admin/technician roles
--- Replace the email addresses with your actual user emails
+-- Run this AFTER schema.sql to fix existing user roles
+-- Replace emails with your actual admin/technician emails
 
--- Grant admin role (run once after creating your admin account)
-UPDATE public.profiles 
-SET role = 'admin' 
-WHERE email = 'your-admin@email.com';
+-- Step 1: Check current roles
+SELECT id, email, role FROM public.profiles ORDER BY created_at;
 
--- Grant technician role
--- UPDATE public.profiles 
--- SET role = 'technician' 
--- WHERE email = 'your-tech@email.com';
+-- Step 2: Set admin role (uncomment and edit)
+-- UPDATE public.profiles SET role = 'admin' WHERE email = 'admin@yourlabs.com';
 
--- Verify roles
-SELECT id, email, role, created_at FROM public.profiles ORDER BY created_at;
+-- Step 3: Set technician role (uncomment and edit)
+-- UPDATE public.profiles SET role = 'technician' WHERE email = 'tech@yourlabs.com';
+
+-- Step 4: Verify
+-- SELECT email, role FROM public.profiles;

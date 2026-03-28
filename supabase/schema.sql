@@ -1,15 +1,15 @@
--- OptiFlow Database Schema — v2 (fixed RLS + triggers)
--- Run this in your Supabase SQL editor
+-- OptiFlow Schema v3 — fixes infinite recursion + role assignment
+-- Drop everything and recreate cleanly in Supabase SQL Editor
 
+-- ============================================================
+-- TABLES
+-- ============================================================
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
--- ============================================================
--- PROFILES
--- ============================================================
 CREATE TABLE public.profiles (
   id UUID REFERENCES auth.users(id) ON DELETE CASCADE PRIMARY KEY,
   email TEXT NOT NULL,
-  role TEXT NOT NULL DEFAULT 'optician' CHECK (role IN ('optician', 'technician', 'admin')),
+  role TEXT NOT NULL DEFAULT 'optician',
   shop_name TEXT,
   owner_name TEXT,
   phone TEXT,
@@ -20,9 +20,6 @@ CREATE TABLE public.profiles (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- ============================================================
--- ORDERS  (removed CHECK constraints that caused 500 errors)
--- ============================================================
 CREATE TABLE public.orders (
   id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
   order_number TEXT UNIQUE NOT NULL,
@@ -55,9 +52,6 @@ CREATE TABLE public.orders (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- ============================================================
--- ORDER STATUS HISTORY
--- ============================================================
 CREATE TABLE public.order_status_history (
   id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
   order_id UUID REFERENCES public.orders(id) ON DELETE CASCADE NOT NULL,
@@ -67,9 +61,6 @@ CREATE TABLE public.order_status_history (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- ============================================================
--- INVOICES
--- ============================================================
 CREATE TABLE public.invoices (
   id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
   invoice_number TEXT UNIQUE NOT NULL,
@@ -89,9 +80,6 @@ CREATE TABLE public.invoices (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- ============================================================
--- NOTIFICATIONS
--- ============================================================
 CREATE TABLE public.notifications (
   id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
   user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
@@ -103,9 +91,6 @@ CREATE TABLE public.notifications (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- ============================================================
--- DELIVERY REQUESTS
--- ============================================================
 CREATE TABLE public.delivery_requests (
   id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
   order_id UUID REFERENCES public.orders(id) NOT NULL,
@@ -119,21 +104,18 @@ CREATE TABLE public.delivery_requests (
 );
 
 -- ============================================================
--- FUNCTIONS & TRIGGERS
+-- TRIGGERS
 -- ============================================================
 CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$
 BEGIN NEW.updated_at = NOW(); RETURN NEW; END;
-$$ language 'plpgsql';
+$$ LANGUAGE plpgsql;
 
-CREATE TRIGGER update_profiles_updated_at BEFORE UPDATE ON public.profiles
-  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-CREATE TRIGGER update_orders_updated_at BEFORE UPDATE ON public.orders
-  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-CREATE TRIGGER update_invoices_updated_at BEFORE UPDATE ON public.invoices
-  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_profiles_updated_at BEFORE UPDATE ON public.profiles FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_orders_updated_at   BEFORE UPDATE ON public.orders   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_invoices_updated_at BEFORE UPDATE ON public.invoices  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
--- Auto-create profile on signup
+-- Auto-create profile on signup (only inserts, never overwrites existing role)
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -153,61 +135,63 @@ CREATE TRIGGER on_auth_user_created
   FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
 
 -- ============================================================
--- ROW LEVEL SECURITY
+-- SECURITY DEFINER HELPER — reads role WITHOUT triggering RLS
+-- This is the KEY fix for "infinite recursion detected in policy"
 -- ============================================================
-ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.orders ENABLE ROW LEVEL SECURITY;
+CREATE OR REPLACE FUNCTION public.get_my_role()
+RETURNS TEXT AS $$
+  SELECT role FROM public.profiles WHERE id = auth.uid();
+$$ LANGUAGE sql SECURITY DEFINER STABLE;
+
+-- ============================================================
+-- ROW LEVEL SECURITY
+-- Uses get_my_role() — never queries profiles from within a profiles policy
+-- ============================================================
+ALTER TABLE public.profiles           ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.orders             ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.order_status_history ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.invoices ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.delivery_requests ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.invoices           ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.notifications      ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.delivery_requests  ENABLE ROW LEVEL SECURITY;
 
--- PROFILES
-CREATE POLICY "Users can view own profile" ON public.profiles FOR SELECT USING (auth.uid() = id);
-CREATE POLICY "Users can update own profile" ON public.profiles FOR UPDATE USING (auth.uid() = id);
-CREATE POLICY "Users can insert own profile" ON public.profiles FOR INSERT WITH CHECK (auth.uid() = id);
-CREATE POLICY "Admins can do anything with profiles" ON public.profiles FOR ALL USING (
-  EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'admin')
+-- PROFILES: simple own-row access + role-based using the helper function
+CREATE POLICY "profiles_select_own"   ON public.profiles FOR SELECT USING (auth.uid() = id OR public.get_my_role() IN ('admin', 'technician'));
+CREATE POLICY "profiles_insert_own"   ON public.profiles FOR INSERT WITH CHECK (auth.uid() = id);
+CREATE POLICY "profiles_update_own"   ON public.profiles FOR UPDATE USING (auth.uid() = id OR public.get_my_role() = 'admin');
+
+-- ORDERS
+CREATE POLICY "orders_select" ON public.orders FOR SELECT USING (
+  optician_id = auth.uid() OR public.get_my_role() IN ('admin', 'technician')
+);
+CREATE POLICY "orders_insert" ON public.orders FOR INSERT WITH CHECK (
+  optician_id = auth.uid() OR public.get_my_role() = 'admin'
+);
+CREATE POLICY "orders_update" ON public.orders FOR UPDATE USING (
+  optician_id = auth.uid() OR public.get_my_role() IN ('admin', 'technician')
 );
 
--- ORDERS — opticians manage their own; staff see all
-CREATE POLICY "Opticians can view own orders" ON public.orders FOR SELECT USING (optician_id = auth.uid());
-CREATE POLICY "Opticians can create orders" ON public.orders FOR INSERT WITH CHECK (optician_id = auth.uid());
-CREATE POLICY "Opticians can update own orders" ON public.orders FOR UPDATE USING (optician_id = auth.uid());
-CREATE POLICY "Staff can view all orders" ON public.orders FOR SELECT USING (
-  EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role IN ('admin', 'technician'))
-);
-CREATE POLICY "Staff can update all orders" ON public.orders FOR UPDATE USING (
-  EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role IN ('admin', 'technician'))
-);
-
--- ORDER STATUS HISTORY — allow ALL authenticated users to insert (opticians, techs, admins)
-CREATE POLICY "Authenticated users can insert history" ON public.order_status_history
-  FOR INSERT WITH CHECK (auth.uid() IS NOT NULL);
-CREATE POLICY "View history for own orders" ON public.order_status_history FOR SELECT USING (
-  EXISTS (SELECT 1 FROM public.orders WHERE id = order_id AND optician_id = auth.uid())
-  OR EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role IN ('admin', 'technician'))
+-- ORDER STATUS HISTORY: open insert for all authenticated, read based on ownership/role
+CREATE POLICY "history_insert" ON public.order_status_history FOR INSERT WITH CHECK (auth.uid() IS NOT NULL);
+CREATE POLICY "history_select" ON public.order_status_history FOR SELECT USING (
+  public.get_my_role() IN ('admin', 'technician')
+  OR EXISTS (SELECT 1 FROM public.orders WHERE id = order_id AND optician_id = auth.uid())
 );
 
 -- INVOICES
-CREATE POLICY "Opticians view own invoices" ON public.invoices FOR SELECT USING (optician_id = auth.uid());
-CREATE POLICY "Admins manage invoices" ON public.invoices FOR ALL USING (
-  EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'admin')
+CREATE POLICY "invoices_select" ON public.invoices FOR SELECT USING (
+  optician_id = auth.uid() OR public.get_my_role() = 'admin'
 );
-CREATE POLICY "Authenticated insert invoices" ON public.invoices
-  FOR INSERT WITH CHECK (auth.uid() IS NOT NULL);
+CREATE POLICY "invoices_insert" ON public.invoices FOR INSERT WITH CHECK (auth.uid() IS NOT NULL);
+CREATE POLICY "invoices_update" ON public.invoices FOR UPDATE USING (public.get_my_role() = 'admin');
 
 -- NOTIFICATIONS
-CREATE POLICY "Users view own notifications" ON public.notifications FOR SELECT USING (user_id = auth.uid());
-CREATE POLICY "Users update own notifications" ON public.notifications FOR UPDATE USING (user_id = auth.uid());
-CREATE POLICY "Anyone can insert notifications" ON public.notifications FOR INSERT WITH CHECK (auth.uid() IS NOT NULL);
+CREATE POLICY "notif_select" ON public.notifications FOR SELECT USING (user_id = auth.uid());
+CREATE POLICY "notif_insert" ON public.notifications FOR INSERT WITH CHECK (auth.uid() IS NOT NULL);
+CREATE POLICY "notif_update" ON public.notifications FOR UPDATE USING (user_id = auth.uid());
 
 -- DELIVERY REQUESTS
-CREATE POLICY "Opticians manage own delivery requests" ON public.delivery_requests
-  FOR ALL USING (optician_id = auth.uid());
-CREATE POLICY "Staff view delivery requests" ON public.delivery_requests FOR SELECT USING (
-  EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role IN ('admin', 'technician'))
-);
+CREATE POLICY "delivery_all_own"   ON public.delivery_requests FOR ALL   USING (optician_id = auth.uid());
+CREATE POLICY "delivery_staff_sel" ON public.delivery_requests FOR SELECT USING (public.get_my_role() IN ('admin', 'technician'));
 
 -- ============================================================
 -- STORAGE
@@ -215,16 +199,10 @@ CREATE POLICY "Staff view delivery requests" ON public.delivery_requests FOR SEL
 INSERT INTO storage.buckets (id, name, public) VALUES ('order-attachments', 'order-attachments', true)
   ON CONFLICT (id) DO NOTHING;
 
-CREATE POLICY "Authenticated upload" ON storage.objects FOR INSERT WITH CHECK (
-  bucket_id = 'order-attachments' AND auth.role() = 'authenticated'
-);
-CREATE POLICY "Public read" ON storage.objects FOR SELECT USING (bucket_id = 'order-attachments');
+CREATE POLICY "storage_insert" ON storage.objects FOR INSERT WITH CHECK (bucket_id = 'order-attachments' AND auth.role() = 'authenticated');
+CREATE POLICY "storage_select" ON storage.objects FOR SELECT USING (bucket_id = 'order-attachments');
 
 -- ============================================================
--- AFTER RUNNING THIS SCHEMA:
--- 1. Create your admin user via Supabase Auth Dashboard (or register page)
--- 2. Run this to grant admin role:
---    UPDATE public.profiles SET role = 'admin' WHERE email = 'your-admin@email.com';
---
--- To create technician accounts, use the Admin > Staff page in the app.
+-- AFTER RUNNING: set admin role for your admin user
+-- UPDATE public.profiles SET role = 'admin' WHERE email = 'your-admin@email.com';
 -- ============================================================
